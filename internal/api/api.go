@@ -2,6 +2,7 @@ package api
 
 import (
 	"log/slog"
+	"medods-test/internal/api/handlers/auth/token/tokens"
 	"medods-test/internal/storage"
 
 	"github.com/gin-contrib/requestid"
@@ -35,7 +36,7 @@ func (api *API) Endpoints() {
 	v1.Use(gin.Logger())
 
 	authV1 := v1.Group("/auth")
-	authV1.POST("/token")
+	authV1.POST("/token", tokens.New(api.Log, api.Storage))
 	authV1.POST("/refresh")
 	authV1.POST("/logout")
 
