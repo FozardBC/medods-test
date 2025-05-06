@@ -1,0 +1,10 @@
+CREATE TABLE ref_tokens (
+    id SERIAL PRIMARY KEY,
+    guid UUID NOT NULL, 
+    token_hash VARCHAR NOT NULL,
+    user_agent_hash VARCHAR NOT NULL,
+    ip_hash varchar NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+

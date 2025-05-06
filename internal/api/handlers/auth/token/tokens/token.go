@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"medods-test/internal/lib/api/response"
 	"medods-test/internal/lib/jwt"
+	"medods-test/internal/models"
 	"net/http"
 	"time"
 
@@ -25,11 +26,11 @@ var (
 	liveRefresh = time.Hour * 24 * 7 // 1 week
 )
 
-type TokenSaver interface {
-	SaveToken(ctx context.Context, token string) error
+type Saver interface {
+	SaveUserInfo(ctx context.Context, UserInfo *models.UserInfo) error
 }
 
-func New(log *slog.Logger, saver TokenSaver) gin.HandlerFunc {
+func New(log *slog.Logger, saver Saver) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
 
@@ -38,6 +39,13 @@ func New(log *slog.Logger, saver TokenSaver) gin.HandlerFunc {
 		)
 
 		var req Request
+
+		if c.Request.UserAgent() == "" {
+			logHandler.Error("UserAgent from request is empty")
+
+			c.JSON(http.StatusBadRequest, response.Error("Bad request"))
+			return
+		}
 
 		if err := c.BindJSON(&req); err != nil {
 			logHandler.Error("failed to decode request body", "error", err.Error())
@@ -86,8 +94,35 @@ func New(log *slog.Logger, saver TokenSaver) gin.HandlerFunc {
 			return
 		}
 
-		if err := saver.SaveToken(ctx, string(hashedRefToken)); err != nil {
-			logHandler.Error("failed to save hash refresh token", "error", err.Error())
+		hashedUserAgent, err := bcrypt.GenerateFromPassword([]byte(c.Request.UserAgent()), bcrypt.DefaultCost)
+		if err != nil {
+			logHandler.Error("failed to hash user agent", "error", err.Error())
+
+			logHandler.Debug("debug", "guid", req.GUID)
+
+			c.JSON(http.StatusInternalServerError, response.Error("Internal error"))
+			return
+		}
+
+		hashedIP, err := bcrypt.GenerateFromPassword([]byte(c.ClientIP()), bcrypt.DefaultCost)
+		if err != nil {
+			logHandler.Error("failed to hash user agent", "error", err.Error())
+
+			logHandler.Debug("debug", "guid", req.GUID)
+
+			c.JSON(http.StatusInternalServerError, response.Error("Internal error"))
+			return
+		}
+
+		UserInfo := &models.UserInfo{
+			GUID:          req.GUID,
+			UserAgentHash: string(hashedUserAgent),
+			IPhash:        string(hashedIP),
+			TokenHash:     hashedRefToken,
+		}
+
+		if err := saver.SaveUserInfo(ctx, UserInfo); err != nil {
+			logHandler.Error("failed to save hash User Info", "error", err.Error())
 
 			logHandler.Debug("debug", "guid", req.GUID)
 

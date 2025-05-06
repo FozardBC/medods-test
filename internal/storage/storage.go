@@ -1,9 +1,12 @@
 package storage
 
-import "context"
+import (
+	"context"
+	"medods-test/internal/models"
+)
 
 type Storage interface {
 	Close()
 	Ping(ctx context.Context) error
-	SaveToken(ctx context.Context, token string) error
+	SaveUserInfo(ctx context.Context, UserInfo *models.UserInfo) error
 }

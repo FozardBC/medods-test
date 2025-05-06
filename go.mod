@@ -11,6 +11,7 @@ require (
 	github.com/jackc/pgx/v5 v5.7.4
 	github.com/joho/godotenv v1.5.1
 	github.com/swaggo/http-swagger v1.3.4
+	golang.org/x/crypto v0.36.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
@@ -48,7 +49,6 @@ require (
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.2.12 // indirect
 	golang.org/x/arch v0.15.0 // indirect
-	golang.org/x/crypto v0.36.0 // indirect
 	golang.org/x/net v0.38.0 // indirect
 	golang.org/x/sync v0.12.0 // indirect
 	golang.org/x/sys v0.31.0 // indirect
