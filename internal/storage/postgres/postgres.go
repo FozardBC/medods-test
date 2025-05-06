@@ -62,3 +62,7 @@ func (s *PostgreStorage) Ping(ctx context.Context) error {
 
 	return nil
 }
+
+func (s *PostgreStorage) SaveToken(ctx context.Context, token string) error {
+	return nil
+}
