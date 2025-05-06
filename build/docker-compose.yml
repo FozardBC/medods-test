@@ -1,0 +1,20 @@
+services:
+  postgres:
+    image: postgres
+    container_name: test-task-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: qwerty
+      POSTGRES_DB: test-task-db
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d test-task-db"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+
+volumes:
+  postgres_data:
