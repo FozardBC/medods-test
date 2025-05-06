@@ -8,6 +8,13 @@ import (
 	"medods-test/internal/storage/postgres"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
+	"time"
+)
+
+const (
+	InfoDbClosed = "Storage is closed. App is shuting down"
 )
 
 func main() {
@@ -29,20 +36,46 @@ func main() {
 
 	api := api.New(log, storage)
 
+	shutdown := make(chan os.Signal, 1)
+	signal.Notify(shutdown, os.Interrupt, syscall.SIGTERM)
+
 	chanError := make(chan error, 1)
 
-	runServer(serverAddr, api.Router, chanError)
-	log.Info("Server is started", "addres", serverAddr)
-
-}
-
-func runServer(addr string, handler http.Handler, errChan chan<- error) {
 	srv := http.Server{
-		Addr:    addr,
-		Handler: handler,
+		Addr:    serverAddr,
+		Handler: api.Router,
 	}
 
 	go func() {
-		errChan <- srv.ListenAndServe()
+		chanError <- srv.ListenAndServe()
 	}()
+	log.Info("Server is started", "addres", serverAddr)
+
+	select {
+	case err := <-chanError:
+		log.Error("Shutting down. Critical error:", "err", err)
+
+		shutdown <- syscall.SIGTERM
+	case sig := <-shutdown:
+		log.Error("received signal, starting graceful shutdown", "signal", sig)
+
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Error("server graceful shutdown failed", "err", err)
+			err = srv.Close()
+			if err != nil {
+				log.Error("forced shutdown failed", "err", err)
+			}
+		}
+
+		storage.Close()
+
+		log.Info(InfoDbClosed)
+
+		log.Info("shutdown completed")
+
+	}
+
 }
