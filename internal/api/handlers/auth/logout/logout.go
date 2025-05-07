@@ -22,6 +22,17 @@ type Storage interface {
 	Logout(ctx context.Context, guid string) error
 }
 
+// @Summary Выход пользователя из системы
+// @Description Выполняет выход пользователя, блокируя текущий токен доступа
+// @Tags logout
+// @Security BearerAuth
+// @Produce json
+// @Success 200 {object} response.Response "Успешный выход из системы"
+// @Failure 401 {string} string "Не авторизован - Неверный или отсутствующий токен"
+// @Failure 500 {string} string "Ошибка сервера - Проблемы при выходе из системы"
+// @Router /api/v1/auth/logout [post]
+//
+// @Param Authorization header string true "Токен доступа" default(Bearer <ваш_токен>)
 func New(log *slog.Logger, storage Storage) gin.HandlerFunc {
 	return func(c *gin.Context) {
 

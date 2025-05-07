@@ -2,6 +2,7 @@ package api
 
 import (
 	"log/slog"
+	_ "medods-test/docs"
 	"medods-test/internal/api/handlers/auth/logout"
 	"medods-test/internal/api/handlers/auth/token/refresh"
 	"medods-test/internal/api/handlers/auth/token/tokens"

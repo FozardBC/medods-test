@@ -14,7 +14,7 @@ services:
       test: ["CMD-SHELL", "pg_isready -U postgres -d medods-test-task-db"]
       interval: 30s
       timeout: 5s
-      start_period: 10s
+      start_period: 2s
 
 
 
@@ -39,6 +39,7 @@ services:
       - SRV_PORT=8080
         # DB
       - DB_CONN_STRING=postgresql://postgres:qwerty@postgres:5432/medods-test-task-db?sslmode=disable
+      - WEB_HOOK=https://webhook.site/22f86d6b-7aca-42fd-a208-ac8d316d88b1 
 
     depends_on:
       postgres:

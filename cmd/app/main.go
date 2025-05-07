@@ -15,6 +15,8 @@ import (
 	"syscall"
 	"time"
 
+	_ "medods-test/docs"
+
 	"github.com/golang-migrate/migrate/v3"
 	_ "github.com/golang-migrate/migrate/v3/database/postgres"
 	_ "github.com/golang-migrate/migrate/v3/source/file"
@@ -24,6 +26,12 @@ const (
 	InfoDbClosed = "Storage is closed. App is shuting down"
 )
 
+// @title medods-test
+// @version 1.0
+// @description Auth service
+
+// @host localhost:8080
+// @BasePath /api/v1/
 func main() {
 
 	ctx := context.Background()

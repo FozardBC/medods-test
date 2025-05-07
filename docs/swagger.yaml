@@ -1,0 +1,160 @@
+basePath: /api/v1/
+definitions:
+  me.Response:
+    properties:
+      guid:
+        type: string
+    type: object
+  refresh.Response:
+    properties:
+      accessToken:
+        type: string
+      response:
+        $ref: '#/definitions/response.Response'
+    type: object
+  response.Response:
+    description: all respones based on this and can overwrite this
+    properties:
+      error:
+        type: string
+      status:
+        type: string
+    type: object
+  tokens.Request:
+    properties:
+      guid:
+        type: string
+    required:
+    - guid
+    type: object
+  tokens.Response:
+    properties:
+      accessToken:
+        type: string
+      response:
+        $ref: '#/definitions/response.Response'
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: Auth service
+  title: medods-test
+  version: "1.0"
+paths:
+  /api/v1/auth/logout:
+    post:
+      description: Выполняет выход пользователя, блокируя текущий токен доступа
+      parameters:
+      - default: Bearer <ваш_токен>
+        description: Токен доступа
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешный выход из системы
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Не авторизован - Неверный или отсутствующий токен
+          schema:
+            type: string
+        "500":
+          description: Ошибка сервера - Проблемы при выходе из системы
+          schema:
+            type: string
+      security:
+      - BearerAuth: []
+      summary: Выход пользователя из системы
+      tags:
+      - logout
+  /auth/tokens:
+    post:
+      consumes:
+      - application/json
+      description: Генерирует новую пару access и refresh токенов для пользователя
+      parameters:
+      - description: Данные для генерации токенов
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/tokens.Request'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 'Set-Cookie: refreshToken={token}; Path=/; Domain=localhost;
+            Max-Age={liveRefresh}; HttpOnly'
+          schema:
+            type: string
+        "400":
+          description: Невалидные входные данные
+          schema:
+            $ref: '#/definitions/response.Response'
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Создание новых токенов
+      tags:
+      - Auth
+  /refresh-token:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Проверяет валидность access и refresh токенов, их соответствие, отсутствие в черном списке. Выдает новую пару токенов, добавляет старые в черный список и обновляет данные пользователя.
+        Refresh token читается из cookie "Cookie:refreshToken="
+      parameters:
+      - description: Access токен в формате 'Bearer <token>'
+        in: header
+        name: Authorization
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешное обновление токенов
+          schema:
+            $ref: '#/definitions/refresh.Response'
+        "400":
+          description: Некорректный запрос (например, GUID уже существует)
+          schema:
+            $ref: '#/definitions/response.Response'
+        "401":
+          description: Неавторизован (невалидные токены, токены в черном списке и
+            т.д.)
+          schema:
+            type: string
+        "500":
+          description: Внутренняя ошибка сервера
+          schema:
+            $ref: '#/definitions/response.Response'
+      summary: Обновление пары JWT токенов
+      tags:
+      - Refresh tokens
+  /user/guid:
+    get:
+      description: Возвращает GUID пользователя из JWT токена
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Успешное получение GUID
+          schema:
+            $ref: '#/definitions/me.Response'
+        "401":
+          description: Неавторизованный запрос
+          schema:
+            type: string
+      security:
+      - ApiKeyAuth: []
+      summary: Получение GUID пользователя
+      tags:
+      - Auth
+swagger: "2.0"

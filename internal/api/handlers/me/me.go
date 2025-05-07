@@ -17,6 +17,14 @@ type Claims struct {
 	GUID string `json:"guid"`
 }
 
+// @Summary Получение GUID пользователя
+// @Description Возвращает GUID пользователя из JWT токена
+// @Tags Auth
+// @Produce json
+// @Security ApiKeyAuth
+// @Success 200 {object} Response "Успешное получение GUID"
+// @Failure 401 {string} string "Неавторизованный запрос"
+// @Router /user/guid [get]
 func New(log *slog.Logger) gin.HandlerFunc {
 	return func(c *gin.Context) {
 

@@ -39,6 +39,19 @@ type Storage interface {
 	IsBlocked(ctx context.Context, hashedToken string) (bool, error)
 }
 
+// RefreshToken godoc
+// @Summary Обновление пары JWT токенов
+// @Description Проверяет валидность access и refresh токенов, их соответствие, отсутствие в черном списке. Выдает новую пару токенов, добавляет старые в черный список и обновляет данные пользователя.
+// @Description Refresh token читается из cookie "Cookie:refreshToken="
+// @Tags Refresh tokens
+// @Accept json
+// @Produce json
+// @Param Authorization header string true "Access токен в формате 'Bearer <token>'"
+// @Success 200 {object} Response "Успешное обновление токенов"
+// @Failure 400 {object} response.Response "Некорректный запрос (например, GUID уже существует)"
+// @Failure 401 {string} string "Неавторизован (невалидные токены, токены в черном списке и т.д.)"
+// @Failure 500 {object} response.Response "Внутренняя ошибка сервера"
+// @Router /refresh-token [post]
 func New(log *slog.Logger, storager Storage) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// проверить не в блек листе ли Рефреш токен

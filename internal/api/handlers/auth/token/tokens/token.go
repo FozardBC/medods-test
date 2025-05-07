@@ -36,6 +36,17 @@ type Saver interface {
 	SaveUserInfo(ctx context.Context, UserInfo *models.UserInfo) (int, error)
 }
 
+// @Summary Создание новых токенов
+// @Description Генерирует новую пару access и refresh токенов для пользователя
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Param request body Request true "Данные для генерации токенов"
+// @Success 200 {object} Response "Успешная генерация токенов"
+// @Success 200 {string} string "Set-Cookie: refreshToken={token}; Path=/; Domain=localhost; Max-Age={liveRefresh}; HttpOnly"
+// @Failure 400 {object} response.Response "Невалидные входные данные"
+// @Failure 500 {object} response.Response "Внутренняя ошибка сервера"
+// @Router /auth/tokens [post]
 func New(log *slog.Logger, saver Saver) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()
