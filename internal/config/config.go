@@ -16,7 +16,7 @@ type Config struct {
 
 func MustRead() *Config {
 
-	if err := godotenv.Load(); err != nil { // DEBUG: "../../.env"
+	if err := godotenv.Load("../../.env"); err != nil { // DEBUG: "../../.env"
 		panic(err)
 	}
 

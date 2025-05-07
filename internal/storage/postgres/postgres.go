@@ -6,9 +6,11 @@ import (
 	"fmt"
 	"log/slog"
 	"medods-test/internal/models"
+	"medods-test/internal/storage"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -21,6 +23,7 @@ const (
 	IpHashColumn        = "ip_hash"
 	CreatedColumn       = "created_at"
 	UpdatedColum        = "updated_at"
+	IsActivatedColumn   = "is_activated"
 )
 
 var (
@@ -100,6 +103,16 @@ func (s *PostgreStorage) SaveUserInfo(ctx context.Context, UserInfo *models.User
 		UserInfo.UserAgentHash,
 		UserInfo.IPhash)
 	if err != nil {
+		if pgErr, ok := err.(*pgconn.PgError); ok {
+			if pgErr.Code == "23505" {
+				s.log.Error(storage.ErrGuidIsExists.Error(), "err", err.Error())
+				s.log.Debug(storage.ErrGuidIsExists.Error(), "err", err.Error(), "query", query)
+
+				return storage.ErrGuidIsExists
+
+			}
+		}
+
 		s.log.Error(ErrQuery.Error(), "err", err.Error())
 		s.log.Debug(ErrQuery.Error(), "err", err.Error(), "query", query)
 
@@ -118,30 +131,32 @@ func (s *PostgreStorage) SaveUserInfo(ctx context.Context, UserInfo *models.User
 
 }
 
-func (s *PostgreStorage) SaveUserAgentHash(ctx context.Context, UserAgentHash string) error {
+func (s *PostgreStorage) IsActive(ctx context.Context, guid string) (bool, error) {
 	tx, err := s.conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		s.log.Error(ErrTxBegin.Error(), "err", err.Error())
 
-		return fmt.Errorf("%w:%w", ErrTxBegin, err)
+		return false, fmt.Errorf("%w:%w", ErrTxBegin, err)
 	}
 
 	tx.Begin(ctx)
 	defer tx.Rollback(ctx)
 
-	query := fmt.Sprintf(`
-	INSERT INTO %s
-	(%s) VALUES ($1) 
-	`, TokensTable,
-		UserAgentHash,
-	)
+	var IsActive bool
 
-	_, err = s.conn.Exec(ctx, query, UserAgentHash)
+	query := fmt.Sprintf(`
+	SELECT %s FROM %s
+	WHERE %s = $1`,
+		IsActivatedColumn,
+		TokensTable,
+		GUIDColumn)
+
+	err = s.conn.QueryRow(ctx, query, guid).Scan(&IsActive)
 	if err != nil {
 		s.log.Error(ErrQuery.Error(), "err", err.Error())
 		s.log.Debug(ErrQuery.Error(), "err", err.Error(), "query", query)
 
-		return fmt.Errorf("%s:%w", ErrQuery, err)
+		return false, fmt.Errorf("%s:%w", ErrQuery, err)
 	}
 
 	err = tx.Commit(ctx)
@@ -149,45 +164,7 @@ func (s *PostgreStorage) SaveUserAgentHash(ctx context.Context, UserAgentHash st
 		s.log.Error(ErrTxCommit.Error(), "err", err.Error())
 		s.log.Debug(ErrTxCommit.Error(), "err", err.Error(), "query", query)
 
-		return fmt.Errorf("%s:%w", ErrTxCommit, err)
+		return false, fmt.Errorf("%s:%w", ErrTxCommit, err)
 	}
-
-	return nil
-}
-
-func (s *PostgreStorage) SaveIpHash(ctx context.Context, ipHash string) error {
-	tx, err := s.conn.BeginTx(ctx, pgx.TxOptions{})
-	if err != nil {
-		s.log.Error(ErrTxBegin.Error(), "err", err.Error())
-
-		return fmt.Errorf("%w:%w", ErrTxBegin, err)
-	}
-
-	tx.Begin(ctx)
-	defer tx.Rollback(ctx)
-
-	query := fmt.Sprintf(`
-	INSERT INTO %s
-	(%s) VALUES ($1) 
-	`, TokensTable,
-		IpHashColumn,
-	)
-
-	_, err = s.conn.Exec(ctx, query, ipHash)
-	if err != nil {
-		s.log.Error(ErrQuery.Error(), "err", err.Error())
-		s.log.Debug(ErrQuery.Error(), "err", err.Error(), "query", query)
-
-		return fmt.Errorf("%s:%w", ErrQuery, err)
-	}
-
-	err = tx.Commit(ctx)
-	if err != nil {
-		s.log.Error(ErrTxCommit.Error(), "err", err.Error())
-		s.log.Debug(ErrTxCommit.Error(), "err", err.Error(), "query", query)
-
-		return fmt.Errorf("%s:%w", ErrTxCommit, err)
-	}
-
-	return nil
+	return IsActive, nil
 }

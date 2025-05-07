@@ -4,10 +4,12 @@ import (
 	"context"
 	"crypto/sha512"
 	"encoding/base64"
+	"errors"
 	"log/slog"
 	"medods-test/internal/lib/api/response"
 	"medods-test/internal/lib/jwt"
 	"medods-test/internal/models"
+	"medods-test/internal/storage"
 	"net/http"
 	"time"
 
@@ -19,6 +21,11 @@ import (
 
 type Request struct {
 	GUID string `json:"guid" validate:"required,uuid"`
+}
+
+type Response struct {
+	Resp        response.Response `json:"response"`
+	AccessToken string            `json:"accessToken"`
 }
 
 var (
@@ -64,7 +71,7 @@ func New(log *slog.Logger, saver Saver) gin.HandlerFunc {
 			return
 		}
 
-		accToken, err := jwt.NewToken(req.GUID, liveAccess)
+		accToken, err := jwt.NewAccessToken(req.GUID, liveAccess)
 		if err != nil {
 			logHandler.Error("failed to generate jwt", "error", err.Error())
 
@@ -74,7 +81,7 @@ func New(log *slog.Logger, saver Saver) gin.HandlerFunc {
 			return
 		}
 
-		refToken, err := jwt.NewToken(req.GUID, liveRefresh)
+		refToken, err := jwt.NewRefreshToken(req.GUID, liveRefresh)
 		if err != nil {
 			logHandler.Error("failed to generate jwt", "error", err.Error())
 
@@ -122,6 +129,16 @@ func New(log *slog.Logger, saver Saver) gin.HandlerFunc {
 		}
 
 		if err := saver.SaveUserInfo(ctx, UserInfo); err != nil {
+			if errors.Is(err, storage.ErrGuidIsExists) {
+				logHandler.Error(err.Error())
+
+				logHandler.Debug("debug", "guid", req.GUID)
+
+				c.JSON(http.StatusBadRequest, response.Error("GUID is already exists"))
+
+				return
+
+			}
 			logHandler.Error("failed to save hash User Info", "error", err.Error())
 
 			logHandler.Debug("debug", "guid", req.GUID)
@@ -131,16 +148,7 @@ func New(log *slog.Logger, saver Saver) gin.HandlerFunc {
 		}
 
 		c.SetCookie(
-			"accessToken", base64.URLEncoding.EncodeToString([]byte(accToken)),
-			int(liveAccess.Seconds()),
-			"/",
-			"localhost",
-			false,
-			true,
-		)
-
-		c.SetCookie(
-			"refreshToken", base64.URLEncoding.EncodeToString([]byte(accToken)),
+			"refreshToken", base64.URLEncoding.EncodeToString([]byte(refToken)),
 			int(liveRefresh.Seconds()),
 			"/",
 			"localhost",
@@ -148,7 +156,7 @@ func New(log *slog.Logger, saver Saver) gin.HandlerFunc {
 			true,
 		)
 
-		c.JSON(http.StatusOK, response.OK())
+		c.JSON(http.StatusOK, Response{Resp: response.OK(), AccessToken: accToken})
 
 	}
 }

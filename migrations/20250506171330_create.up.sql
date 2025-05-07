@@ -1,6 +1,6 @@
 CREATE TABLE ref_tokens (
     id SERIAL PRIMARY KEY,
-    guid UUID NOT NULL, 
+    guid UUID UNIQUE NOT NULL, 
     token_hash VARCHAR NOT NULL,
     user_agent_hash VARCHAR NOT NULL,
     ip_hash varchar NOT NULL,

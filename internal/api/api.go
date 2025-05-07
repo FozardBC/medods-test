@@ -3,6 +3,8 @@ package api
 import (
 	"log/slog"
 	"medods-test/internal/api/handlers/auth/token/tokens"
+	"medods-test/internal/api/handlers/me"
+	"medods-test/internal/api/middlewares/auth"
 	"medods-test/internal/storage"
 
 	"github.com/gin-contrib/requestid"
@@ -40,7 +42,7 @@ func (api *API) Endpoints() {
 	authV1.POST("/refresh")
 	authV1.POST("/logout")
 
-	v1.GET("/me")
+	v1.GET("/me", auth.AuthMiddleware(api.Log, api.Storage), me.New(api.Log))
 
 	v1.GET("/swagger/*any", gin.WrapH(httpSwagger.Handler()))
 
