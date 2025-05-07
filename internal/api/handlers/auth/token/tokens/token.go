@@ -2,7 +2,6 @@ package tokens
 
 import (
 	"context"
-	"crypto/sha512"
 	"encoding/base64"
 	"errors"
 	"log/slog"
@@ -34,7 +33,7 @@ var (
 )
 
 type Saver interface {
-	SaveUserInfo(ctx context.Context, UserInfo *models.UserInfo) error
+	SaveUserInfo(ctx context.Context, UserInfo *models.UserInfo) (int, error)
 }
 
 func New(log *slog.Logger, saver Saver) gin.HandlerFunc {
@@ -91,7 +90,7 @@ func New(log *slog.Logger, saver Saver) gin.HandlerFunc {
 			return
 		}
 
-		hashedRefToken, err := HashJWTbcrypt(refToken) // рефреш токен сначала сжимается до 64 байт чтобы затем захешировать его в bcrypt (ограничение 72 байта)
+		hashedRefToken, err := jwt.HashJWTbcrypt(refToken) // рефреш токен сначала сжимается до 64 байт чтобы затем захешировать его в bcrypt (ограничение 72 байта)
 		if err != nil {
 			logHandler.Error("failed to hash refresh token", "error", err.Error())
 
@@ -128,8 +127,8 @@ func New(log *slog.Logger, saver Saver) gin.HandlerFunc {
 			TokenHash:     hashedRefToken,
 		}
 
-		if err := saver.SaveUserInfo(ctx, UserInfo); err != nil {
-			if errors.Is(err, storage.ErrGuidIsExists) {
+		if _, err := saver.SaveUserInfo(ctx, UserInfo); err != nil {
+			if errors.Is(err, storage.ErrGuidExists) {
 				logHandler.Error(err.Error())
 
 				logHandler.Debug("debug", "guid", req.GUID)
@@ -148,7 +147,7 @@ func New(log *slog.Logger, saver Saver) gin.HandlerFunc {
 		}
 
 		c.SetCookie(
-			"refreshToken", base64.URLEncoding.EncodeToString([]byte(refToken)),
+			"refreshToken", base64.StdEncoding.EncodeToString([]byte(refToken)),
 			int(liveRefresh.Seconds()),
 			"/",
 			"localhost",
@@ -159,16 +158,4 @@ func New(log *slog.Logger, saver Saver) gin.HandlerFunc {
 		c.JSON(http.StatusOK, Response{Resp: response.OK(), AccessToken: accToken})
 
 	}
-}
-
-// чтобы захешировать jwt refresh token в bcrypt, необходимо его сжать до 64 байт
-func HashJWTbcrypt(jwt string) (string, error) {
-	shaHash := sha512.Sum512([]byte(jwt))
-	shaHashStr := string(shaHash[:])
-
-	hashedJwtToken, err := bcrypt.GenerateFromPassword([]byte(shaHashStr), bcrypt.DefaultCost)
-	if err != nil {
-		return "", err
-	}
-	return string(hashedJwtToken), nil
 }

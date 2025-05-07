@@ -2,6 +2,8 @@ package api
 
 import (
 	"log/slog"
+	"medods-test/internal/api/handlers/auth/logout"
+	"medods-test/internal/api/handlers/auth/token/refresh"
 	"medods-test/internal/api/handlers/auth/token/tokens"
 	"medods-test/internal/api/handlers/me"
 	"medods-test/internal/api/middlewares/auth"
@@ -39,8 +41,8 @@ func (api *API) Endpoints() {
 
 	authV1 := v1.Group("/auth")
 	authV1.POST("/token", tokens.New(api.Log, api.Storage))
-	authV1.POST("/refresh")
-	authV1.POST("/logout")
+	authV1.POST("/refresh", refresh.New(api.Log, api.Storage))
+	authV1.PUT("/logout", logout.New(api.Log, api.Storage))
 
 	v1.GET("/me", auth.AuthMiddleware(api.Log, api.Storage), me.New(api.Log))
 

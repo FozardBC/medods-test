@@ -2,14 +2,18 @@ package me
 
 import (
 	"log/slog"
-	"medods-test/internal/lib/api/response"
 	"net/http"
 
 	"github.com/gin-contrib/requestid"
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
 )
 
 type Response struct {
+	GUID string `json:"guid"`
+}
+
+type Claims struct {
 	GUID string `json:"guid"`
 }
 
@@ -22,23 +26,23 @@ func New(log *slog.Logger) gin.HandlerFunc {
 
 		var Response Response
 
-		guid, ok := c.Get("guid")
+		claims, ok := c.Get("claims")
 		if !ok {
 			logHandler.Error("failed to get guid from context")
 
-			c.JSON(http.StatusInternalServerError, "Internal error")
+			c.JSON(http.StatusUnauthorized, "Unauthorized")
 			return
 		}
 
-		switch g := guid.(type) {
-		case string:
-			Response.GUID = g
-		default:
-			logHandler.Error("unexpected type of GUID %T", g)
+		jwtClaims, ok := claims.(jwt.MapClaims)
+		if !ok {
+			logHandler.Error("unexepted type of claims")
 
-			c.JSON(http.StatusBadRequest, response.Error("unexpected type of GUID"))
+			c.JSON(http.StatusUnauthorized, "Unauthorized")
+			return
 		}
 
+		Response.GUID = jwtClaims["guid"].(string)
 		c.JSON(http.StatusOK, Response)
 
 	}

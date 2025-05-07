@@ -27,7 +27,7 @@ const (
 )
 
 const (
-	BlaclistTable   = "blaclist_ref"
+	BlackListTable  = "blacklist_used_tokens"
 	IdRefColumn     = "id_ref_tokens"
 	UsedTokenColumn = "used_token"
 )
@@ -85,12 +85,12 @@ func (s *PostgreStorage) Ping(ctx context.Context) error {
 	return nil
 }
 
-func (s *PostgreStorage) SaveUserInfo(ctx context.Context, UserInfo *models.UserInfo) error {
+func (s *PostgreStorage) SaveUserInfo(ctx context.Context, UserInfo *models.UserInfo) (int, error) {
 	tx, err := s.conn.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		s.log.Error(ErrTxBegin.Error(), "err", err.Error())
 
-		return fmt.Errorf("%w:%w", ErrTxBegin, err)
+		return 0, fmt.Errorf("%w:%w", ErrTxBegin, err)
 	}
 
 	tx.Begin(ctx)
@@ -99,22 +99,25 @@ func (s *PostgreStorage) SaveUserInfo(ctx context.Context, UserInfo *models.User
 	query := fmt.Sprintf(`
 	INSERT INTO %s
 	(%s, %s, %s, %s) VALUES ($1, $2, $3, $4) 
+	RETURNING id
 	`, TokensTable,
 		GUIDColumn, RefTokenHashColumn, UserAgentHashColumn, IpHashColumn,
 	)
 
-	_, err = s.conn.Exec(ctx, query,
+	var id int
+
+	err = s.conn.QueryRow(ctx, query,
 		UserInfo.GUID,
 		UserInfo.TokenHash,
 		UserInfo.UserAgentHash,
-		UserInfo.IPhash)
+		UserInfo.IPhash).Scan(&id)
 	if err != nil {
 		if pgErr, ok := err.(*pgconn.PgError); ok {
 			if pgErr.Code == "23505" {
 				s.log.Error(storage.ErrGuidExists.Error(), "err", err.Error())
 				s.log.Debug(storage.ErrGuidExists.Error(), "err", err.Error(), "query", query)
 
-				return storage.ErrGuidExists
+				return 0, storage.ErrGuidExists
 
 			}
 		}
@@ -122,7 +125,7 @@ func (s *PostgreStorage) SaveUserInfo(ctx context.Context, UserInfo *models.User
 		s.log.Error(ErrQuery.Error(), "err", err.Error())
 		s.log.Debug(ErrQuery.Error(), "err", err.Error(), "query", query)
 
-		return fmt.Errorf("%s:%w", ErrQuery, err)
+		return 0, fmt.Errorf("%s:%w", ErrQuery, err)
 	}
 
 	err = tx.Commit(ctx)
@@ -130,10 +133,10 @@ func (s *PostgreStorage) SaveUserInfo(ctx context.Context, UserInfo *models.User
 		s.log.Error(ErrTxCommit.Error(), "err", err.Error())
 		s.log.Debug(ErrTxCommit.Error(), "err", err.Error(), "query", query)
 
-		return fmt.Errorf("%s:%w", ErrTxCommit, err)
+		return 0, fmt.Errorf("%s:%w", ErrTxCommit, err)
 	}
 
-	return nil
+	return id, nil
 
 }
 
@@ -186,7 +189,7 @@ func (s *PostgreStorage) BlockToken(ctx context.Context, hashedToken string, idT
 	query := fmt.Sprintf(`
 	INSERT INTO %s (%s,%s)
 	VALUES ($1, $2)`,
-		BlaclistTable,
+		BlackListTable,
 		IdRefColumn,
 		UsedTokenColumn,
 	)
@@ -203,6 +206,7 @@ func (s *PostgreStorage) BlockToken(ctx context.Context, hashedToken string, idT
 		}
 
 	}
+
 	err = tx.Commit(ctx)
 	if err != nil {
 		s.log.Error(ErrTxCommit.Error(), "err", err.Error())
@@ -210,6 +214,184 @@ func (s *PostgreStorage) BlockToken(ctx context.Context, hashedToken string, idT
 
 		return fmt.Errorf("%s:%w", ErrTxCommit, err)
 	}
+	return nil
+
+}
+
+func (s *PostgreStorage) IsBlocked(ctx context.Context, hashedToken string) (bool, error) {
+	tx, err := s.conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		s.log.Error(ErrTxBegin.Error(), "err", err.Error())
+
+		return false, fmt.Errorf("%w:%w", ErrTxBegin, err)
+	}
+
+	blocked := false
+	var count int
+
+	query := fmt.Sprintf(`
+	SELECT COUNT(*) FROM %s
+	WHERE %s = $1
+	`, BlackListTable,
+		UsedTokenColumn,
+	)
+
+	err = s.conn.QueryRow(ctx, query, hashedToken).Scan(&count)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			blocked = false
+		} else {
+			return false, fmt.Errorf("%w:%w", ErrQuery, err)
+		}
+
+	}
+
+	if count > 0 {
+		blocked = true
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		s.log.Error(ErrTxCommit.Error(), "err", err.Error())
+		s.log.Debug(ErrTxCommit.Error(), "err", err.Error(), "query", query)
+
+		return false, fmt.Errorf("%s:%w", ErrTxCommit, err)
+	}
+	return blocked, nil
+}
+
+func (s *PostgreStorage) FindByGUID(ctx context.Context, guid string) (*models.UserInfo, int, error) {
+	tx, err := s.conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		s.log.Error(ErrTxBegin.Error(), "err", err.Error())
+
+		return nil, 0, fmt.Errorf("%w:%w", ErrTxBegin, err)
+	}
+
+	var UserInfo models.UserInfo
+	var id int
+
+	query := fmt.Sprintf(`
+	SELECT %s, %s,%s,%s,%s FROM %s
+	WHERE %s = $1
+	`, IdColumn, GUIDColumn, RefTokenHashColumn, UserAgentHashColumn, IpHashColumn,
+		TokensTable,
+		GUIDColumn,
+	)
+
+	err = s.conn.QueryRow(ctx, query, guid).Scan(
+		&id,
+		&UserInfo.GUID,
+		&UserInfo.TokenHash,
+		&UserInfo.UserAgentHash,
+		&UserInfo.IPhash,
+	)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.log.Error("GUID not found")
+
+			return nil, 0, fmt.Errorf("GUID not found:%w", err)
+		} else {
+			s.log.Error(ErrQuery.Error(), "error", err.Error())
+			return nil, 0, fmt.Errorf("%w:%w", ErrQuery, err)
+		}
+
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		s.log.Error(ErrTxCommit.Error(), "err", err.Error())
+		s.log.Debug(ErrTxCommit.Error(), "err", err.Error(), "query", query)
+
+		return nil, 0, fmt.Errorf("%s:%w", ErrTxCommit, err)
+	}
+
+	return &UserInfo, id, nil
+}
+
+func (s *PostgreStorage) Logout(ctx context.Context, guid string) error {
+	tx, err := s.conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		s.log.Error(ErrTxBegin.Error(), "err", err.Error())
+
+		return fmt.Errorf("%w:%w", ErrTxBegin, err)
+	}
+
+	query := fmt.Sprintf(`
+	UPDATE %s
+	SET %s = FALSE
+	WHERE %s = $1`,
+		TokensTable,
+		IsActivatedColumn,
+		GUIDColumn,
+	)
+
+	_, err = s.conn.Exec(ctx, query, guid)
+
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			s.log.Error("GUID not found")
+
+			return fmt.Errorf("GUID not found:%w", err)
+		} else {
+			s.log.Error(ErrQuery.Error(), "error", err.Error())
+			return fmt.Errorf("%w:%w", ErrQuery, err)
+		}
+
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		s.log.Error(ErrTxCommit.Error(), "err", err.Error())
+		s.log.Debug(ErrTxCommit.Error(), "err", err.Error(), "query", query)
+
+		return fmt.Errorf("%s:%w", ErrTxCommit, err)
+	}
+
+	return nil
+}
+
+func (s *PostgreStorage) UpdateUserInfo(ctx context.Context, UserInfo *models.UserInfo) error {
+	tx, err := s.conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		s.log.Error(ErrTxBegin.Error(), "err", err.Error())
+
+		return fmt.Errorf("%w:%w", ErrTxBegin, err)
+	}
+
+	tx.Begin(ctx)
+	defer tx.Rollback(ctx)
+
+	query := fmt.Sprintf(`
+	UPDATE %s
+	SET %s = $1, %s = $2, %s = $3
+	WHERE %s = $4
+	`, TokensTable,
+		RefTokenHashColumn, UserAgentHashColumn, IpHashColumn,
+		GUIDColumn,
+	)
+
+	_, err = s.conn.Exec(ctx, query,
+		UserInfo.TokenHash,
+		UserInfo.UserAgentHash,
+		UserInfo.IPhash,
+		UserInfo.GUID)
+	if err != nil {
+
+		s.log.Error(ErrQuery.Error(), "err", err.Error())
+		s.log.Debug(ErrQuery.Error(), "err", err.Error(), "query", query)
+
+		return fmt.Errorf("%s:%w", ErrQuery, err)
+	}
+
+	err = tx.Commit(ctx)
+	if err != nil {
+		s.log.Error(ErrTxCommit.Error(), "err", err.Error())
+		s.log.Debug(ErrTxCommit.Error(), "err", err.Error(), "query", query)
+
+		return fmt.Errorf("%s:%w", ErrTxCommit, err)
+	}
+
 	return nil
 
 }

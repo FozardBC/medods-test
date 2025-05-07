@@ -8,3 +8,8 @@ CREATE TABLE ref_tokens (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE blaclist_ref(
+	id_ref_tokens int references ref_tokens(id),
+	used_token varchar UNIQUE NOT NULL
+);
+

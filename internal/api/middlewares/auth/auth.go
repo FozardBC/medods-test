@@ -15,6 +15,7 @@ import (
 
 type Provider interface {
 	IsActive(ctx context.Context, guid string) (bool, error)
+	IsBlocked(ctx context.Context, hashedToken string) (bool, error)
 }
 
 func AuthMiddleware(log *slog.Logger, provider Provider) gin.HandlerFunc {
@@ -41,17 +42,36 @@ func AuthMiddleware(log *slog.Logger, provider Provider) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		}
 
-		token, err := jwtLib.VerifyToken(authTokens[1])
+		token, err := jwtLib.VerifyToken(authTokens[1], "access")
 		if err != nil {
+			logHandler.Error("failed to verify token")
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
 
+		hashedAccessToken, err := jwtLib.HashJWTbcrypt(authTokens[1])
+		if err != nil {
+			logHandler.Error("failet to hash token")
+			c.AbortWithStatus(http.StatusUnauthorized)
+		}
+
+		blocked, err := provider.IsBlocked(ctx, hashedAccessToken)
+		if err != nil {
+			logHandler.Error("failed to check block token")
+			c.AbortWithStatus(http.StatusUnauthorized)
+			return
+		}
+
+		if blocked {
+			logHandler.Info("token is blocked")
 			c.AbortWithStatus(http.StatusUnauthorized)
 			return
 		}
 
 		var guidString string
 
-		claimGUID := token.Claims.(jwt.MapClaims)
-		guid := claimGUID["guid"]
+		claims := token.Claims.(jwt.MapClaims)
+		guid := claims["guid"]
 
 		switch g := guid.(type) {
 		case string:
@@ -75,7 +95,7 @@ func AuthMiddleware(log *slog.Logger, provider Provider) gin.HandlerFunc {
 			c.AbortWithStatus(http.StatusUnauthorized)
 		}
 
-		c.Set("guid", guid)
+		c.Set("claims", claims)
 
 		c.Next()
 	}
