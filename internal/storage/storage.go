@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	ErrGuidIsExists = errors.New("GUID is already exists")
+	ErrGuidExists      = errors.New("GUID is already exists")
+	ErrTokenUsedExsits = errors.New("token is alredy exists")
 )
 
 type Storage interface {
@@ -15,4 +16,5 @@ type Storage interface {
 	Ping(ctx context.Context) error
 	SaveUserInfo(ctx context.Context, UserInfo *models.UserInfo) error
 	IsActive(ctx context.Context, guid string) (bool, error)
+	BlockToken(ctx context.Context, hashedToken string, idToken string) error
 }

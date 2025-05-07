@@ -26,6 +26,12 @@ const (
 	IsActivatedColumn   = "is_activated"
 )
 
+const (
+	BlaclistTable   = "blaclist_ref"
+	IdRefColumn     = "id_ref_tokens"
+	UsedTokenColumn = "used_token"
+)
+
 var (
 	ErrConnectString = errors.New("can't connect to Postgres")
 	ErrTxBegin       = errors.New("can't start transaction")
@@ -105,10 +111,10 @@ func (s *PostgreStorage) SaveUserInfo(ctx context.Context, UserInfo *models.User
 	if err != nil {
 		if pgErr, ok := err.(*pgconn.PgError); ok {
 			if pgErr.Code == "23505" {
-				s.log.Error(storage.ErrGuidIsExists.Error(), "err", err.Error())
-				s.log.Debug(storage.ErrGuidIsExists.Error(), "err", err.Error(), "query", query)
+				s.log.Error(storage.ErrGuidExists.Error(), "err", err.Error())
+				s.log.Debug(storage.ErrGuidExists.Error(), "err", err.Error(), "query", query)
 
-				return storage.ErrGuidIsExists
+				return storage.ErrGuidExists
 
 			}
 		}
@@ -167,4 +173,43 @@ func (s *PostgreStorage) IsActive(ctx context.Context, guid string) (bool, error
 		return false, fmt.Errorf("%s:%w", ErrTxCommit, err)
 	}
 	return IsActive, nil
+}
+
+func (s *PostgreStorage) BlockToken(ctx context.Context, hashedToken string, idToken string) error {
+	tx, err := s.conn.BeginTx(ctx, pgx.TxOptions{})
+	if err != nil {
+		s.log.Error(ErrTxBegin.Error(), "err", err.Error())
+
+		return fmt.Errorf("%w:%w", ErrTxBegin, err)
+	}
+
+	query := fmt.Sprintf(`
+	INSERT INTO %s (%s,%s)
+	VALUES ($1, $2)`,
+		BlaclistTable,
+		IdRefColumn,
+		UsedTokenColumn,
+	)
+
+	_, err = s.conn.Exec(ctx, query, idToken, hashedToken)
+	if err != nil {
+		if pgErr, ok := err.(*pgconn.PgError); ok {
+			if pgErr.Code == "23505" {
+				s.log.Warn(storage.ErrTokenUsedExsits.Error())
+				s.log.Debug(storage.ErrGuidExists.Error(), "err", err.Error(), "query", query)
+			}
+		} else {
+			return fmt.Errorf("%w:%w", ErrQuery, err)
+		}
+
+	}
+	err = tx.Commit(ctx)
+	if err != nil {
+		s.log.Error(ErrTxCommit.Error(), "err", err.Error())
+		s.log.Debug(ErrTxCommit.Error(), "err", err.Error(), "query", query)
+
+		return fmt.Errorf("%s:%w", ErrTxCommit, err)
+	}
+	return nil
+
 }
