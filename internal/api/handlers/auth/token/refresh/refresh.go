@@ -51,7 +51,7 @@ type Storage interface {
 // @Failure 400 {object} response.Response "Некорректный запрос (например, GUID уже существует)"
 // @Failure 401 {string} string "Неавторизован (невалидные токены, токены в черном списке и т.д.)"
 // @Failure 500 {object} response.Response "Внутренняя ошибка сервера"
-// @Router /refresh-token [post]
+// @Router /refresh [post]
 func New(log *slog.Logger, storager Storage) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// проверить не в блек листе ли Рефреш токен

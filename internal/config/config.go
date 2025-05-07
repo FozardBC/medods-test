@@ -17,7 +17,7 @@ type Config struct {
 func MustRead() *Config {
 
 	if err := godotenv.Load(); err != nil { // DEBUG: "../../.env"
-		panic(err)
+		log.Print("WARN: CAN'T LOAD .env  TRY TO USE env variabels:%w", err.Error())
 	}
 
 	cfg := Config{}

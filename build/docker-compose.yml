@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: postgres:15
+    image: postgres:alpine
     container_name: medods-test-task-db
     environment:
       POSTGRES_USER: postgres

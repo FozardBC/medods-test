@@ -21,7 +21,7 @@ type Claims struct {
 // @Description Возвращает GUID пользователя из JWT токена
 // @Tags Auth
 // @Produce json
-// @Security ApiKeyAuth
+// @Security JWT
 // @Success 200 {object} Response "Успешное получение GUID"
 // @Failure 401 {string} string "Неавторизованный запрос"
 // @Router /user/guid [get]

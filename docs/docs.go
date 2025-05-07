@@ -108,7 +108,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/refresh-token": {
+        "/refresh": {
             "post": {
                 "description": "Проверяет валидность access и refresh токенов, их соответствие, отсутствие в черном списке. Выдает новую пару токенов, добавляет старые в черный список и обновляет данные пользователя.\nRefresh token читается из cookie \"Cookie:refreshToken=\"",
                 "consumes": [
@@ -162,7 +162,7 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "JWT": []
                     }
                 ],
                 "description": "Возвращает GUID пользователя из JWT токена",

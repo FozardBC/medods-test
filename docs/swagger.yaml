@@ -102,7 +102,7 @@ paths:
       summary: Создание новых токенов
       tags:
       - Auth
-  /refresh-token:
+  /refresh:
     post:
       consumes:
       - application/json
@@ -153,7 +153,7 @@ paths:
           schema:
             type: string
       security:
-      - ApiKeyAuth: []
+      - JWT: []
       summary: Получение GUID пользователя
       tags:
       - Auth
