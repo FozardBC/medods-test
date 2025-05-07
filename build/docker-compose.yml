@@ -33,7 +33,7 @@ services:
     
     environment:
       - LOG_MODE=debug
-      - JWT_SECRET=sassassassas
+      - JWT_SECRET=asdgasgfdgabu3gpf19r3bg08vduhdwpuh;alksdnfads
         # LISTEN
       - SRV_HOST=0.0.0.0
       - SRV_PORT=8080
