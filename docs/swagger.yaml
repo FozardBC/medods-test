@@ -71,7 +71,7 @@ paths:
       summary: Выход пользователя из системы
       tags:
       - logout
-  /auth/tokens:
+  /auth/token:
     post:
       consumes:
       - application/json

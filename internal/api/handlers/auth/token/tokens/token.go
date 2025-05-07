@@ -46,7 +46,7 @@ type Saver interface {
 // @Success 200 {string} string "Set-Cookie: refreshToken={token}; Path=/; Domain=localhost; Max-Age={liveRefresh}; HttpOnly"
 // @Failure 400 {object} response.Response "Невалидные входные данные"
 // @Failure 500 {object} response.Response "Внутренняя ошибка сервера"
-// @Router /auth/tokens [post]
+// @Router /auth/token [post]
 func New(log *slog.Logger, saver Saver) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		ctx := c.Request.Context()

@@ -62,7 +62,7 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/tokens": {
+        "/auth/token": {
             "post": {
                 "description": "Генерирует новую пару access и refresh токенов для пользователя",
                 "consumes": [
