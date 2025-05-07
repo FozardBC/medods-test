@@ -186,7 +186,7 @@ func New(log *slog.Logger, storager Storage) gin.HandlerFunc {
 		if err != nil {
 			log.Warn("Different IP")
 
-			// WEB HOOK
+			go webHook(logHandler, c.ClientIP())
 
 		}
 

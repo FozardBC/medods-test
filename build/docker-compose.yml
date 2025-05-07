@@ -32,11 +32,10 @@ services:
       - .:/app
     
     environment:
-      - name=valu 
       - LOG_MODE=debug
       - JWT_SECRET=sassassassas
         # LISTEN
-      - SRV_HOST=localhost
+      - SRV_HOST=0.0.0.0
       - SRV_PORT=8080
         # DB
       - DB_CONN_STRING=postgresql://postgres:qwerty@postgres:5432/medods-test-task-db?sslmode=disable
