@@ -2,6 +2,9 @@ package main
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"log/slog"
 	"medods-test/internal/api"
 	"medods-test/internal/config"
 	"medods-test/internal/logger"
@@ -11,6 +14,10 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
+	"github.com/golang-migrate/migrate/v3"
+	_ "github.com/golang-migrate/migrate/v3/database/postgres"
+	_ "github.com/golang-migrate/migrate/v3/source/file"
 )
 
 const (
@@ -33,6 +40,13 @@ func main() {
 
 		os.Exit(1)
 	}
+
+	// err = startMigrations(log, cfg.DbConnString)
+	// if err != nil {
+	// 	log.Error("can't start migrations", "err", err)
+
+	// 	os.Exit(1)
+	// }
 
 	api := api.New(log, storage)
 
@@ -78,4 +92,22 @@ func main() {
 
 	}
 
+}
+
+func startMigrations(log *slog.Logger, connString string) error {
+	m, err := migrate.New("file://migrations", connString) // DEBUG: ../../migrations"
+	if err != nil {
+		return fmt.Errorf("can't start migration driver:%w", err)
+	}
+
+	if err := m.Up(); err != nil {
+		if errors.Is(err, migrate.ErrNoChange) {
+			log.Warn("Migarate didn't run. Nothing to change")
+			return nil
+		}
+		return fmt.Errorf("failed to do migrations:%w", err)
+
+	}
+
+	return nil
 }

@@ -1,20 +1,65 @@
 services:
   postgres:
-    image: postgres
-    container_name: test-task-db
+    image: postgres:15
+    container_name: medods-test-task-db
     environment:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: qwerty
-      POSTGRES_DB: test-task-db
+      POSTGRES_DB: medods-test-task-db
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d test-task-db"]
+      test: ["CMD-SHELL", "pg_isready -U postgres -d medods-test-task-db"]
       interval: 30s
       timeout: 5s
       start_period: 10s
+
+
+
+  server:
+    build: 
+      context: ../
+      dockerfile: Dockerfile
+
+    container_name: server-cont
+
+    ports:
+    - "8080:8080"
+
+    volumes:
+      - .:/app
+    
+    environment:
+      - name=valu 
+      - LOG_MODE=debug
+      - JWT_SECRET=sassassassas
+        # LISTEN
+      - SRV_HOST=localhost
+      - SRV_PORT=8080
+        # DB
+      - DB_CONN_STRING=postgresql://postgres:qwerty@postgres:5432/medods-test-task-db?sslmode=disable
+
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  migrations:
+    image: kukymbr/goose-docker:3.24.2
+    environment:
+      - GOOSE_DRIVER=postgres
+      - GOOSE_DBSTRING=postgresql://postgres:qwerty@postgres:5432/medods-test-task-db?sslmode=disable
+    volumes:
+      - ../migrations:/migrations
+    command:
+       - goose
+       - -dir=/migrations  
+       - up
+    depends_on:
+      postgres:
+       condition: service_healthy
+
 
 volumes:
   postgres_data:
